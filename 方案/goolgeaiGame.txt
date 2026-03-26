@@ -1,0 +1,11 @@
+安装capacitor 实现套壳，
+
+安装taku android sdk 
+如果出现sdk无法访问到，同步本地gradle
+广告实现原理 利用java调用sdk，然后利用capacitor组件的自定义plugin实现桥接，最后需要在java和ts里面注册，ts里面使用
+
+如果修改了ts代码 要run build 重新构建web项目，并调用npx cap sync同步进套壳里面
+
+namespace = "com.testadw.app"
+namespace "com.anythink.sdk"命名空间修改可以不修改（解决AGP不支持在配置什么包名，和支持会产生的包名冲突，全部放置com.testadw.app下，
+
