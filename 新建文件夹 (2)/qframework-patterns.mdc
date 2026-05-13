@@ -1,0 +1,64 @@
+---
+description: QFramework（QF）分层与 API 使用约定
+globs: Assets/**/*.cs
+alwaysApply: false
+---
+
+# QFramework 约定
+
+本仓库已集成 `Assets/QFramework/`。**不要**在业务需求中随意改写 QFramework 源码；升级或修 bug 再动该目录。
+
+## 架构入口
+
+- 使用 `Architecture<T>` 单例：`YourArchitecture.Interface` 或具体类的 `InitArchitecture()` 后再取接口。
+- 在 `protected override void Init()` 里完成：`RegisterModel` / `RegisterSystem` / `RegisterUtility`，不要留 `NotImplementedException` 作为运行时代码。
+
+## 分层职责
+
+| 类型 | 基类/接口 | 职责 |
+|------|-----------|------|
+| Model | `AbstractModel` / `IModel` | 数据与状态，可 `SendEvent` |
+| System | `AbstractSystem` / `ISystem` | 业务系统、跨 Model 的流程 |
+| Command | `ICommand` / `ICommand<TResult>` | 单次写操作/用例，经 `SendCommand` 执行 |
+| Query | `IQuery<TResult>` | 只读查询，经 `SendQuery` |
+| Utility | `IUtility` | 纯工具/外部服务，无架构引用 |
+| 表现层 | `MonoBehaviour` + `IController` 能力（扩展方法） | UI、输入；通过 `this.GetArchitecture()` 等与架构通信 |
+
+- **Command / Query / Event 应是独立类型**（struct 事件或 class），不要命名为笼统的 `XxxCommand.cs` 却继承 `MonoBehaviour`；表现层 MonoBehaviour 与 CQRS 类型分开文件。
+
+## Jigsolitaire：Command / Event 集中文件
+
+本模块把 **Command 与 Event 的类型定义**固定放在（路径与文件名保持现状，勿改）：
+
+- `Assets/Scripts/Aritechiturn/JigsonlitaireCommand.cs`：存放 `AbstractCommand` 等 **Command** 类。
+- `Assets/Scripts/Aritechiturn/JigsonlitaireEven.cs`：存放 **Event** 的 `struct`（如加载进度、完成等）。
+
+约定：
+
+- **使用方式**维持与当前工程一致：可在上述文件中**同文件多类型并列**，不强制「一个类型一个 .cs 文件」。
+- 在补全/生成/重构建议中：**不要**提议重命名上述两个文件，或为了「规范」而把它们拆成多文件；除非用户明确要求。
+- 业务代码中新增 `SendCommand` / `SendEvent` 所需类型时，应**先在上述对应文件中增加**新 Command/Event，再在调用处使用；**不要**只在调用点临时定义类型、也不要在其它业务文件重复声明同名事件/命令。
+- 这两个文件声明的类和类中的变量应该都为`public`，因为是需要给发送方赋值的。
+
+## 常用 API（经 Architecture）
+
+- 发命令：`this.SendCommand(new SomeCommand(...))` （视当前类型是否混入 `ICanSendCommand`）。
+- 发事件：`this.SendEvent(new SomeEvent { ... })`；订阅：`this.RegisterEvent<SomeEvent>(e => { ... })`，并在 返回值 上链式调用 `.UnRegisterWhenGameObjectDestroyed(gameObject)`，随物体销毁自动注销。
+- 取依赖：`this.GetModel<T>()` / `this.GetSystem<T>()`（需在对应 `ICan*` 上下文中）。
+- 协程 / 时序：需要延时或顺序编排时优先用 ActionKit；仍不合适再用协程或 `Update`。
+
+## 命名与目录
+
+- 游戏业务脚本建议放在 `Assets/Scriptes/`（与现有一致），按 `Model` / `System` / `Command` / `UI` 等子文件夹拆分。
+- 架构类命名与游戏模块一致（例如 `JigsonlitaireArchitecture`），便于搜索与 `InitArchitecture` 调用。
+
+### Model / Utility 引用命名
+
+- 在字段、局部变量等**持有** `AbstractModel` 子类或 `IUtility` 实现时，使用 **`m` + 该类型的类名**（PascalCase）：`GameModel mGameModel`、`AudioUtility mAudioUtility`、`LevelModel mLevelModel`。
+- **反例**（在表示某 Model/Utility 实例时避免）：`GameModel gameModel`、`_gameModel`、单字 `model`；生成/补全时优先 `m` + 类型名。
+
+## 类型名与 `global::`（UIKit / QF 类型）
+
+- **默认不要写** `global::QFramework.UIPanel`、`global::QFramework.UIPanelData` 等；文件顶部已有 `using QFramework;` 时，继承写 **`UIPanel` / `UIPanelData`** 即可，保持可读。
+- **仅在出现命名冲突时**再使用限定：`global::QFramework.UIPanel` 或给本程序集中的冲突类型改名（例如不要在本命名空间里再定义与 QF 同名的 `UIPanel` 包装类）。冲突消除后应回到省略写法。
+- **不要**「为防万一」在大量业务代码里铺满 `global::`；需要时只解决冲突的那一处。

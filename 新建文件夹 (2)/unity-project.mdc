@@ -1,0 +1,16 @@
+---
+description: Unity 工程通用约定与目录约束
+alwaysApply: true
+---
+
+# Unity 工程
+
+- 不要修改 `Library/`、`Temp/`、`obj/`、`Logs/` 等生成目录；业务与框架代码放在 `Assets/` 下。
+- 在 `Assets/` 下新增脚本时，若团队使用版本控制，需同时考虑对应的 `.meta`（不要随意改 GUID）。
+- 优先用 `SerializeField` 暴露 Inspector，避免滥用 `public` 字段；生命周期逻辑放在 `Awake`/`Start`/`OnDestroy` 等合适位置。
+- 性能敏感路径避免在 `Update` 里做重复分配（如 LINQ、临时 List）；需要时用缓存或事件驱动。
+
+## `Assets/Scripts/Utility` 命名
+
+- 该目录下的 **类型名（class / struct / static class 等）必须以 `Utility` 后缀结尾**，并与文件名一致（例如 `JigsawPuzzleMapLayoutUtility.cs` 内 `JigsawPuzzleMapLayoutUtility`）。
+- **反例**：在 `Utility` 文件夹放名为 `JigsawPuzzleMapLayout` 且无 `Utility` 后缀的类型。
