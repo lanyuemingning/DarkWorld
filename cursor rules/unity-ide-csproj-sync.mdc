@@ -1,0 +1,46 @@
+---
+description: Unity 与 Cursor IDE 工程同步，避免 CS0246「找不到类型」反复出现
+globs: Assets/Scripts/**/*.cs
+alwaysApply: false
+---
+
+# Unity ↔ Cursor：避免 IDE 报「找不到类型」
+
+## 根因（两套编译）
+
+- **Unity 编译**：扫描 `Assets/**/*.cs`，不依赖 `.csproj`。
+- **Cursor / OmniSharp**：读项目根目录的 `BlockPuzzle.sln` / `Assembly-CSharp.csproj` 做智能提示。
+- 本仓库 **`.gitignore` 忽略了 `*.sln` / `*.csproj`**，每台机器各自生成；文件过期时 IDE 报 **CS0246**，Unity 可能仍能进 Play。
+
+常见触发：QFramework **一键生成 UI 面板** 新增 `UIPlayGameXxx.cs` 后，未刷新 IDE 工程；或在面板类生成前就写 `UIKit.OpenPanel<UIPlayGameXxx>()`。
+
+## 永久措施（已内置）
+
+1. **自动同步**（默认开）：`Assets/Scripts/` 下任意 `.cs` 增删改后，Editor 会调用 `CodeEditor.CurrentEditor.SyncAll()` 重写 `.sln` / `.csproj`。
+   - 菜单：`BlockPuzzle → 自动同步 IDE 工程（脚本变更后）` 可关。
+2. **手动同步**：`BlockPuzzle → 为 Cursor 重新生成 C# 工程`。
+3. **External Script Editor**：`Edit → Preferences → External Tools` 选 **Cursor**（或已安装的 Cursor 路径），不要用「Open by file extension」长期开发。
+
+## UI 面板开发顺序（必守）
+
+1. 在 Unity 对 Prefab 执行 QFramework **Create UIPanel Code**（生成 `Xxx.cs` + `Xxx.Designer.cs`）。
+2. 等待编译完成；确认自动同步日志或手动点一次「重新生成 C# 工程」。
+3. 再在其它脚本里写 `UIKit.OpenPanel<UIXxx>()` 或发事件。
+
+**反例**：先写 `OpenPanel<UIPlayGameSetting>()`，后生成面板 → IDE/Unity 短暂 CS0246。
+
+## 仍报红时
+
+1. Unity 菜单手动「重新生成 C# 工程」。
+2. Cursor：`Developer: Reload Window`。
+3. 确认打开的是**项目根目录**（含 `BlockPuzzle.sln`），不是单独某个 `.cs` 文件夹。
+
+## 可选（团队策略）
+
+- **纳入版本控制**：从 `.gitignore` 移除根目录 `*.sln` / `Assembly-CSharp*.csproj`，每次新增脚本后 Regenerate 并提交 → 全队 IDE 一致；合并时可能冲突。
+- **不要手改 `.csproj`**：文件头注明会被 Unity 覆盖；应通过 `SyncAll` 再生。
+
+## 生成/修改 UI 引用代码时
+
+- 优先 `UIKit.OpenPanel<T>()`（`T` 必须已存在且 IDE 工程已同步）。
+- 不要为躲 CS0246 改用字符串 `OpenPanel("Name")`，除非用户明确要求。
